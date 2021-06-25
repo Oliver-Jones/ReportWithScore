@@ -1,0 +1,426 @@
+<aura:component controller="TargetController" implements="lightning:actionOverride,flexipage:availableForAllPageTypes,flexipage:availableForRecordHome,force:hasRecordId,force:lightningQuickAction" access="global">
+    <aura:attribute name="objects" type="List" />
+    <aura:attribute name="intervals" type="List" />
+    <aura:attribute name="fieldMap" type="List" />
+    <aura:attribute name="fields" type="List" />
+    <aura:attribute name="subFieldMap" type="List" />
+    <aura:attribute name="subFields" type="List" />
+    <aura:attribute name="users" type="List" />
+    <aura:attribute name="years" type="List" />
+    <aura:attribute name="tempUsers" type="List" />
+    <aura:attribute name="selectedUsers" type="List" />
+    <aura:attribute name="isLoading" type="Boolean" Default="false"/>
+    <aura:attribute name="step1" type="Boolean" Default="false"/>
+    <aura:attribute name="step2" type="Boolean" Default="false"/>
+    <aura:attribute name="step3" type="Boolean" Default="false"/>
+    <aura:attribute name="isCurrency" type="Boolean" Default="false"/>
+    <aura:attribute name="currentYear" type="Integer" />
+    <aura:attribute name="selectedObject" type="String" />
+    <aura:attribute name="selectedField" type="String" />
+    <aura:attribute name="selectedSubField" type="String" />
+    <aura:attribute name="selectedInterval" type="String" />
+    <aura:attribute name="selectedYear" type="String" />
+    <aura:attribute name="progressVal" type="Integer" />
+    
+    <aura:handler name="init" value="{!this}" action="{!c.doInit}" />
+    <lightning:layout class="slds-page-header slds-page-header--object-home">
+        <lightning:layoutItem>
+            <lightning:icon iconName="standard:customer_lifecycle_analytics" alternativeText="Target" />
+        </lightning:layoutItem>
+        <lightning:layoutItem padding="horizontal-small">
+            <div class="page-section page-header">            
+                <h2 class="slds-text-heading--medium">Create a new Target</h2>
+            </div>
+        </lightning:layoutItem>
+        <lightning:layoutItem flexibility="auto" padding="around-small">
+            <div align="right">            
+                
+            </div>
+        </lightning:layoutItem>
+    </lightning:layout>
+    <div class="slds-card">
+        <aura:if isTrue="{!v.isLoading}">
+            <lightning:spinner alternativeText="Loading" size="large" variant="brand"/>
+            <aura:set attribute="else">
+                <aura:if isTrue="{!v.step1}">
+                    <div class="slds-p-around_large">
+                        <div class="slds-grid slds-grid slds-wrap slds-grid--pull-padded">
+                            <div class="slds-p-horizontal--small slds-size_1-of-2">
+                                <lightning:select aura:id="objectSelection" label="Choose an Object" required="true" onchange="{! c.handleObjectChange}">
+                                    <aura:iteration items="{!v.objects}" var="object">
+                                        <option value="{! object.value}" text="{!object.label}" selected="{!object.selected}" disabled="{! object.disabled}"></option>
+                                    </aura:iteration>
+                                </lightning:select>
+                            </div>
+                            <div class="slds-p-horizontal--small slds-size_1-of-2">
+                            </div>
+                            <div class="slds-p-horizontal--small slds-size_1-of-2">
+                                <lightning:select aura:id="fieldSelection" label="Choose Field" required="true" disabled="{! or(v.selectedObject == undefined, v.selectedObject =='')}" onchange="{! c.handleFieldChange}">
+                                    <aura:iteration items="{!v.fields}" var="field">
+                                        <option value="{! field.value}" text="{!field.label}" selected="{!field.selected}" disabled="{! field.disabled}"></option>
+                                    </aura:iteration>
+                                </lightning:select>
+                            </div>
+                            <div class="slds-p-horizontal--small slds-size_1-of-2">
+                            </div>
+                            <div class="slds-p-horizontal--small slds-size_1-of-2">
+                                <aura:if isTrue="{! v.selectedField == 'Amount'}">
+                                    <lightning:select aura:id="subFieldSelection" label="{!v.selectedField+' on'}" required="true" disabled="{! or(v.selectedField == undefined, v.selectedField =='')}" onchange="{! c.handleSubFieldChange}">
+                                        <aura:iteration items="{!v.subFields}" var="field">
+                                            <option value="{! field.value}" text="{!field.label}" selected="{!field.selected}" disabled="{! field.disabled}"></option>
+                                        </aura:iteration>
+                                    </lightning:select>
+                                </aura:if>
+                            </div>
+                            <div class="slds-p-horizontal--small slds-size_1-of-2">
+                            </div>
+                            <div class="slds-p-horizontal--small slds-size_1-of-2">
+                                <lightning:select aura:id="intervalSelection" label="Choose an Interval" required="true" disabled="{! or(v.selectedObject == undefined, v.selectedObject =='')}" onchange="{! c.handleIntervalChange}">
+                                    <aura:iteration items="{!v.intervals}" var="interval">
+                                        <option value="{! interval.value}" text="{!interval.label}" selected="{!interval.selected}" disabled="{! interval.disabled}"></option>
+                                    </aura:iteration>
+                                </lightning:select>
+                            </div>
+                            <div class="slds-p-horizontal--small slds-size_1-of-2">
+                            </div>
+                            <div class="slds-p-horizontal--small slds-size_1-of-2">
+                                <aura:if isTrue="{! or(v.selectedInterval == 'Monthly', v.selectedInterval == 'Quarterly')}">
+                                    <lightning:select aura:id="yearSelection" label="Choose year" required="true" disabled="{! or(v.selectedInterval == undefined, v.selectedInterval =='')}" onchange="{! c.handleYearChange}">
+                                        <aura:iteration items="{!v.years}" var="year">
+                                            <option value="{! year.value}" text="{!year.label}" selected="{!year.selected}" disabled="{! year.disabled}"></option>
+                                        </aura:iteration>
+                                    </lightning:select>
+                                </aura:if>
+                            </div>
+                            <div class="slds-p-horizontal--small slds-size_1-of-2">
+                            </div>
+                        </div>
+                        <br/>
+                        <br/>
+                        <lightning:button variant="neutral" label="Next" disabled="{! or(v.selectedField == undefined, or(v.selectedField == '', or(v.selectedInterval == undefined, v.selectedInterval =='')))}" onclick="{!c.handleTargetCollection}"/>
+                    </div>
+                </aura:if>
+                <aura:if isTrue="{!v.step2}">
+                    <div class="slds-p-around_large">
+                        <b>{! v.selectedObject +' > '+ v.selectedField +' > '+ v.selectedInterval}</b>
+                        <aura:if isTrue="{!v.selectedField == 'Amount'}">
+                            <b>{! ' > '+ v.selectedSubField}</b>
+                        </aura:if>
+                        <aura:if isTrue="{!v.selectedInterval != 'Yearly'}">
+                            <b>{! ' > '+ v.selectedYear}</b>
+                        </aura:if>
+                        <br/>
+                        <br/>
+                        <div class="slds-grid slds-grid slds-wrap slds-grid--pull-padded">
+                            <div class="slds-p-horizontal--small slds-size_1-of-2" onkeyup="{! c.getAllUsers }">
+                                <lightning:input aura:id="searchInput" label="Search Users" type="search" variant="label-hidden" placeholder="Type here to add users..."/>
+                            </div>
+                            <div class="slds-p-horizontal--small slds-size_1-of-2" style="text-align:right;">
+                                <lightning:button variant="brand" label="Calculate" onclick="{! c.handleCalculation }"/>
+                            </div>
+                        </div>
+                        <br/>
+                        <aura:if isTrue="{! greaterthanorequal(v.tempUsers.length,1) }"> 
+                            <div id="listbox-unique-id" role="listbox">
+                                <ul class="slds-listbox slds-listbox_vertical slds-dropdown slds-dropdown_fluid" role="presentation"
+                                    style="display: block; min-width: auto; max-width: 100% ; width: 100%;">
+                                    <aura:iteration items="{!v.tempUsers}" var="item">
+                                        <li role="presentation" class="slds-listbox__item" data-selectedval="{! item.userTar.UserId__c}" onclick="{!c.itemSelected}">
+                                            <span class="slds-media slds-listbox__option slds-listbox__option_entity slds-listbox__option_has-meta" 
+                                                  role="option">
+                                                <span class="slds-media__figure optionIcon">
+                                                    <span class="slds-icon_container" >
+                                                        <lightning:icon iconName="standard:user" size="small"/>
+                                                        <span class="slds-assistive-text">User</span>
+                                                    </span>
+                                                </span>
+                                                <span class="slds-media__body singleRow">
+                                                    <span class="optionTitle slds-listbox__option-text slds-listbox__option-text_entity">{! item.userTar.Name}</span>
+                                                </span>
+                                            </span>
+                                        </li>
+                                    </aura:iteration> 
+                                </ul>
+                            </div>
+                        </aura:if> 
+                        <aura:iteration items="{!v.selectedUsers}" var="wrap">
+                            <lightning:pill label="{!wrap.userTar.Name}" onremove="{! c.clearSelection }" name="{! wrap.userTar.UserId__c}">
+                                <aura:set attribute="media">
+                                    <lightning:avatar src="{!wrap.photoURL}" fallbackIconName="standard:user" variant="square" alternativeText="User avatar"/>
+                                </aura:set>
+                            </lightning:pill>
+                        </aura:iteration>
+                    </div>
+                    <table class="slds-table slds-table--bordered slds-table--cell-buffer slds-max-medium-table--stacked">
+                        <thead>
+                            <aura:if isTrue="{!v.selectedInterval == 'Monthly'}">
+                                <tr>
+                                    <th>
+                                        <h2>User</h2>
+                                    </th>
+                                    <th>
+                                        <h2>January</h2>
+                                    </th>
+                                    <th>
+                                        <h2>February</h2>
+                                    </th>
+                                    <th>
+                                        <h2>March</h2>
+                                    </th>
+                                    <th>
+                                        <h2>April</h2>
+                                    </th>
+                                    <th>
+                                        <h2>May</h2>
+                                    </th>
+                                    <th>
+                                        <h2>June</h2>
+                                    </th>
+                                    <th>
+                                        <h2>July</h2>
+                                    </th>
+                                    <th>
+                                        <h2>August</h2>
+                                    </th>
+                                    <th>
+                                        <h2>September</h2>
+                                    </th>
+                                    <th>
+                                        <h2>October</h2>
+                                    </th>
+                                    <th>
+                                        <h2>November</h2>
+                                    </th>
+                                    <th>
+                                        <h2>December</h2>
+                                    </th>
+                                </tr>
+                            </aura:if>
+                            <aura:if isTrue="{!v.selectedInterval == 'Quarterly'}">
+                                <tr>
+                                    <th>
+                                        <h2>User</h2>
+                                    </th>
+                                    <th>
+                                        <h2>Quarter 1</h2>
+                                    </th>
+                                    <th>
+                                        <h2>Quarter 2</h2>
+                                    </th>
+                                    <th>
+                                        <h2>Quarter 3</h2>
+                                    </th>
+                                    <th>
+                                        <h2>Quarter 4</h2>
+                                    </th>
+                                </tr>
+                            </aura:if>
+                            <aura:if isTrue="{!v.selectedInterval == 'Yearly'}">
+                                <tr>
+                                    <th>
+                                        <h2>User</h2>
+                                    </th>
+                                    <th>
+                                        <h2>{! v.currentYear - 3}</h2>
+                                    </th>
+                                    <th>
+                                        <h2>{! v.currentYear - 2}</h2>
+                                    </th>
+                                    <th>
+                                        <h2>{! v.currentYear - 1}</h2>
+                                    </th>
+                                </tr>
+                            </aura:if>
+                        </thead>
+                        <tbody>
+                            <aura:iteration items="{!v.selectedUsers}" var="wrap">
+                                <aura:if isTrue="{!v.selectedInterval == 'Monthly'}">
+                                    <tr>
+                                        <td class="slds-truncate" data-label="User Name">
+                                            <lightning:formattedUrl value="{!'/'+wrap.userTar.UserId__c}" tooltip="{!wrap.userTar.Name}" label="{!wrap.userTar.Name}" target="_blank" />
+                                        </td>
+                                        <td class="slds-truncate" data-label="January Target">
+                                            <aura:if isTrue="{!v.isCurrency}">
+                                                <lightning:input type="number" value="{! wrap.userTar.January_T__c}" formatter="currency" step="0.01" variant="label-hidden"/>
+                                                <aura:set attribute="else">
+                                                    <lightning:input type="number" value="{! wrap.userTar.January_T__c}" step="0" variant="label-hidden"/>
+                                                </aura:set>
+                                            </aura:if>
+                                        </td>
+                                        <td class="slds-truncate" data-label="February Target">
+                                            <aura:if isTrue="{!v.isCurrency}">
+                                                <lightning:input type="number" value="{! wrap.userTar.February_T__c}" formatter="currency" step="0.01" variant="label-hidden"/>
+                                                <aura:set attribute="else">
+                                                    <lightning:input type="number" value="{! wrap.userTar.February_T__c}" step="0" variant="label-hidden"/>
+                                                </aura:set>
+                                            </aura:if>
+                                        </td>
+                                        <td class="slds-truncate" data-label="March Target">
+                                            <aura:if isTrue="{!v.isCurrency}">
+                                                <lightning:input type="number" value="{! wrap.userTar.March_T__c}" formatter="currency" step="0.01" variant="label-hidden"/>
+                                                <aura:set attribute="else">
+                                                    <lightning:input type="number" value="{! wrap.userTar.March_T__c}" step="0" variant="label-hidden"/>
+                                                </aura:set>
+                                            </aura:if>
+                                        </td>
+                                        <td class="slds-truncate" data-label="April Target">
+                                            <aura:if isTrue="{!v.isCurrency}">
+                                                <lightning:input type="number" value="{! wrap.userTar.April_T__c}" formatter="currency" step="0.01" variant="label-hidden"/>
+                                                <aura:set attribute="else">
+                                                    <lightning:input type="number" value="{! wrap.userTar.April_T__c}" step="0" variant="label-hidden"/>
+                                                </aura:set>
+                                            </aura:if>
+                                        </td>
+                                        <td class="slds-truncate" data-label="May Target">
+                                            <aura:if isTrue="{!v.isCurrency}">
+                                                <lightning:input type="number" value="{! wrap.userTar.May_T__c}" formatter="currency" step="0.01" variant="label-hidden"/>
+                                                <aura:set attribute="else">
+                                                    <lightning:input type="number" value="{! wrap.userTar.May_T__c}" step="0" variant="label-hidden"/>
+                                                </aura:set>
+                                            </aura:if>
+                                        </td>
+                                        <td class="slds-truncate" data-label="June Target">
+                                            <aura:if isTrue="{!v.isCurrency}">
+                                                <lightning:input type="number" value="{! wrap.userTar.June_T__c}" formatter="currency" step="0.01" variant="label-hidden"/>
+                                                <aura:set attribute="else">
+                                                    <lightning:input type="number" value="{! wrap.userTar.June_T__c}" step="0" variant="label-hidden"/>
+                                                </aura:set>
+                                            </aura:if>
+                                        </td>
+                                        <td class="slds-truncate" data-label="July Target">
+                                            <aura:if isTrue="{!v.isCurrency}">
+                                                <lightning:input type="number" value="{! wrap.userTar.July_T__c}" formatter="currency" step="0.01" variant="label-hidden"/>
+                                                <aura:set attribute="else">
+                                                    <lightning:input type="number" value="{! wrap.userTar.July_T__c}" step="0" variant="label-hidden"/>
+                                                </aura:set>
+                                            </aura:if>
+                                        </td>
+                                        <td class="slds-truncate" data-label="August Target">
+                                            <aura:if isTrue="{!v.isCurrency}">
+                                                <lightning:input type="number" value="{! wrap.userTar.August_T__c}" formatter="currency" step="0.01" variant="label-hidden"/>
+                                                <aura:set attribute="else">
+                                                    <lightning:input type="number" value="{! wrap.userTar.August_T__c}" step="0" variant="label-hidden"/>
+                                                </aura:set>
+                                            </aura:if>
+                                        </td>
+                                        <td class="slds-truncate" data-label="September Target">
+                                            <aura:if isTrue="{!v.isCurrency}">
+                                                <lightning:input type="number" value="{! wrap.userTar.September_T__c}" formatter="currency" step="0.01" variant="label-hidden"/>
+                                                <aura:set attribute="else">
+                                                    <lightning:input type="number" value="{! wrap.userTar.September_T__c}" step="0" variant="label-hidden"/>
+                                                </aura:set>
+                                            </aura:if>
+                                        </td>
+                                        <td class="slds-truncate" data-label="October Target">
+                                            <aura:if isTrue="{!v.isCurrency}">
+                                                <lightning:input type="number" value="{! wrap.userTar.October_T__c}" formatter="currency" step="0.01" variant="label-hidden"/>
+                                                <aura:set attribute="else">
+                                                    <lightning:input type="number" value="{! wrap.userTar.October_T__c}" step="0" variant="label-hidden"/>
+                                                </aura:set>
+                                            </aura:if>
+                                        </td>
+                                        <td class="slds-truncate" data-label="November Target">
+                                            <aura:if isTrue="{!v.isCurrency}">
+                                                <lightning:input type="number" value="{! wrap.userTar.November_T__c}" formatter="currency" step="0.01" variant="label-hidden"/>
+                                                <aura:set attribute="else">
+                                                    <lightning:input type="number" value="{! wrap.userTar.November_T__c}" step="0" variant="label-hidden"/>
+                                                </aura:set>
+                                            </aura:if>
+                                        </td>
+                                        <td class="slds-truncate" data-label="December Target">
+                                            <aura:if isTrue="{!v.isCurrency}">
+                                                <lightning:input type="number" value="{! wrap.userTar.December_T__c}" formatter="currency" step="0.01" variant="label-hidden"/>
+                                                <aura:set attribute="else">
+                                                    <lightning:input type="number" value="{! wrap.userTar.December_T__c}" step="0" variant="label-hidden"/>
+                                                </aura:set>
+                                            </aura:if>
+                                        </td>
+                                    </tr>
+                                </aura:if>
+                                <aura:if isTrue="{!v.selectedInterval == 'Quarterly'}">
+                                    <tr>
+                                        <td class="slds-truncate" data-label="User Name">
+                                            <lightning:formattedUrl value="{!'/'+wrap.userTar.UserId__c}" tooltip="{!wrap.userTar.Name}" label="{!wrap.userTar.Name}" target="_blank" />
+                                        </td>
+                                        <td class="slds-truncate" data-label="Quarter 1 Target">
+                                            <aura:if isTrue="{!v.isCurrency}">
+                                                <lightning:input type="number" value="{! wrap.userTar.Q1_T__c}" formatter="currency" step="0.01" variant="label-hidden"/>
+                                                <aura:set attribute="else">
+                                                    <lightning:input type="number" value="{! wrap.userTar.Q1_T__c}" step="0" variant="label-hidden"/>
+                                                </aura:set>
+                                            </aura:if>
+                                        </td>
+                                        <td class="slds-truncate" data-label="Quarter 2 Target">
+                                            <aura:if isTrue="{!v.isCurrency}">
+                                                <lightning:input type="number" value="{! wrap.userTar.Q2_T__c}" formatter="currency" step="0.01" variant="label-hidden"/>
+                                                <aura:set attribute="else">
+                                                    <lightning:input type="number" value="{! wrap.userTar.Q2_T__c}" step="0" variant="label-hidden"/>
+                                                </aura:set>
+                                            </aura:if>
+                                        </td>
+                                        <td class="slds-truncate" data-label="Quarter 3 Target">
+                                            <aura:if isTrue="{!v.isCurrency}">
+                                                <lightning:input type="number" value="{! wrap.userTar.Q3_T__c}" formatter="currency" step="0.01" variant="label-hidden"/>
+                                                <aura:set attribute="else">
+                                                    <lightning:input type="number" value="{! wrap.userTar.Q3_T__c}" step="0" variant="label-hidden"/>
+                                                </aura:set>
+                                            </aura:if>
+                                        </td>
+                                        <td class="slds-truncate" data-label="Quarter 4 Target">
+                                            <aura:if isTrue="{!v.isCurrency}">
+                                                <lightning:input type="number" value="{! wrap.userTar.Q4_T__c}" formatter="currency" step="0.01" variant="label-hidden"/>
+                                                <aura:set attribute="else">
+                                                    <lightning:input type="number" value="{! wrap.userTar.Q4_T__c}" step="0" variant="label-hidden"/>
+                                                </aura:set>
+                                            </aura:if>
+                                        </td>
+                                    </tr>
+                                </aura:if>
+                                <aura:if isTrue="{!v.selectedInterval == 'Yearly'}">
+                                    <tr>
+                                        <td class="slds-truncate" data-label="User Name">
+                                            <lightning:formattedUrl value="{!'/'+wrap.userTar.UserId__c}" tooltip="{!wrap.userTar.Name}" label="{!wrap.userTar.Name}" target="_blank" />
+                                        </td>
+                                        <td class="slds-truncate" data-label="Year 1 Target">
+                                            <aura:if isTrue="{!v.isCurrency}">
+                                                <lightning:input type="number" value="{! wrap.userTar.Year1_T__c}" formatter="currency" step="0.01" variant="label-hidden"/>
+                                                <aura:set attribute="else">
+                                                    <lightning:input type="number" value="{! wrap.userTar.Year1_T__c}" step="0" variant="label-hidden"/>
+                                                </aura:set>
+                                            </aura:if>
+                                        </td>
+                                        <td class="slds-truncate" data-label="Year 2 Target">
+                                            <aura:if isTrue="{!v.isCurrency}">
+                                                <lightning:input type="number" value="{! wrap.userTar.Year2_T__c}" formatter="currency" step="0.01" variant="label-hidden"/>
+                                                <aura:set attribute="else">
+                                                    <lightning:input type="number" value="{! wrap.userTar.Year2_T__c}" step="0" variant="label-hidden"/>
+                                                </aura:set>
+                                            </aura:if>
+                                        </td>
+                                        <td class="slds-truncate" data-label="Year 3 Target">
+                                            <aura:if isTrue="{!v.isCurrency}">
+                                                <lightning:input type="number" value="{! wrap.userTar.Year3_T__c}" formatter="currency" step="0.01" variant="label-hidden"/>
+                                                <aura:set attribute="else">
+                                                    <lightning:input type="number" value="{! wrap.userTar.Year3_T__c}" step="0" variant="label-hidden"/>
+                                                </aura:set>
+                                            </aura:if>
+                                        </td>
+                                    </tr>
+                                </aura:if>
+                            </aura:iteration>
+                        </tbody>
+                    </table>
+                </aura:if>
+                <aura:if isTrue="{!v.step3}">
+                    <div>
+                        <div style="text-align:center;margin:10px">Calculating...</div>
+                        <div style="width:80%;margin-left: 10%;">
+                            <lightning:progressBar value="{!v.progressVal}" size="large" />
+                        </div>
+                        <div style="text-align:center;margin:10px"></div>
+                    </div>
+                </aura:if>
+            </aura:set>
+        </aura:if>
+    </div>
+</aura:component>

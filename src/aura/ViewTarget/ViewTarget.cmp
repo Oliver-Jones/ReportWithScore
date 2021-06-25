@@ -1,0 +1,290 @@
+<aura:component controller="TargetController" implements="lightning:actionOverride,flexipage:availableForAllPageTypes,flexipage:availableForRecordHome,force:hasRecordId,force:lightningQuickAction" access="global">
+    <aura:attribute name="recordId" type="String" description="Current record Id"/>
+    <aura:attribute name="target" type="Target__c" />
+    <aura:attribute name="currencyFlag" type="Boolean" Default="false"/>
+    <aura:attribute name="thisYear" type="Integer" />
+    <aura:attribute name="editMode" type="Boolean" Default="false"/>
+    <aura:attribute name="isLoading" type="Boolean" Default="false"/>
+    <aura:attribute name="isCalculating" type="Boolean" Default="false"/>
+    <aura:attribute name="users" type="List" />
+    <aura:attribute name="tempUsers" type="List" />
+    <aura:attribute name="selectedUsers" type="List" />
+    <aura:attribute name="progressVal" type="Integer" />
+    
+    <aura:handler name="init" value="{!this}" action="{!c.doInit}" />
+    
+    <lightning:layout class="slds-page-header slds-page-header--object-home">
+        <lightning:layoutItem>
+            <lightning:icon iconName="standard:customer_lifecycle_analytics" alternativeText="Target" />
+        </lightning:layoutItem>
+        <lightning:layoutItem padding="horizontal-small">
+            <div class="page-section page-header">            
+                <h2 class="slds-text-heading--medium">{!v.target.Name}</h2>
+                <b>{! v.target.Object__c +' > '+ v.target.Field__c}</b>
+                <aura:if isTrue="{!v.target.Field__c == 'Amount'}">
+                    <b>{! ' > '+ v.target.SubField__c}</b>
+                </aura:if>
+                <b>{!' > '+ v.target.Interval__c}</b>
+                <aura:if isTrue="{!v.target.Interval__c != 'Yearly'}">
+                    <b>{! ' > '+ v.target.Year__c}</b>
+                </aura:if>
+            </div>
+        </lightning:layoutItem>
+        <lightning:layoutItem flexibility="auto" padding="around-small">
+            <div align="right">
+                <aura:if isTrue="{!v.editMode}">
+                    <lightning:button label="Save" iconName="utility:edit" iconPosition="left" variant="brand" onclick="{!c.updateTargets}"/>
+                    <lightning:button label="Cancel" iconName="utility:close" iconPosition="left" variant="brand" onclick="{!c.cancelEdit}"/>
+                    <aura:set attribute="else">
+                        <b>Last Calculated on :
+                            <lightning:formattedDateTime value="{!v.target.Run_Time__c}" year="numeric" month="short" day="2-digit" hour="2-digit" minute="2-digit" hour12="true"/>
+                        </b>
+                        &nbsp;&nbsp;
+                        <lightning:button label="Edit" iconName="utility:edit" iconPosition="left" variant="brand" onclick="{!c.editTargets}"/>
+                        <lightning:button label="Re-Calculate" iconName="utility:refresh" iconPosition="left" variant="brand" onclick="{!c.reCalculate}"/>
+                    </aura:set>
+                </aura:if>
+            </div>
+        </lightning:layoutItem>
+    </lightning:layout>
+    <div class="slds-card">
+        <aura:if isTrue="{!v.isLoading}">
+            <lightning:spinner alternativeText="Loading" size="large" variant="brand"/>
+            <aura:set attribute="else">
+                <aura:if isTrue="{!v.isCalculating}">
+                    <div>
+                        <div style="text-align:center;margin:10px">Calculating...</div>
+                        <div style="width:80%;margin-left: 10%;">
+                            <lightning:progressBar value="{!v.progressVal}" size="large" />
+                        </div>
+                        <div style="text-align:center;margin:10px"></div>
+                    </div>
+                    <aura:set attribute="else">
+                        <aura:if isTrue="{!v.editMode}">
+                            <div class="slds-p-around_large">
+                                <div class="slds-grid slds-grid slds-wrap slds-grid--pull-padded">
+                                    <div class="slds-p-horizontal--small slds-size_1-of-2" onkeyup="{! c.getAllUsers }">
+                                        <lightning:input aura:id="searchInput" label="Search Users" type="search" variant="label-hidden" placeholder="Type here to add users..."/>
+                                    </div>
+                                </div>
+                                <br/>
+                                <aura:if isTrue="{! greaterthanorequal(v.tempUsers.length,1) }"> 
+                                    <div id="listbox-unique-id" role="listbox">
+                                        <ul class="slds-listbox slds-listbox_vertical slds-dropdown slds-dropdown_fluid" role="presentation"
+                                            style="display: block; min-width: auto; max-width: 100% ; width: 100%;">
+                                            <aura:iteration items="{!v.tempUsers}" var="item">
+                                                <li role="presentation" class="slds-listbox__item" data-selectedval="{! item.userTar.UserId__c}" onclick="{!c.itemSelected}">
+                                                    <span class="slds-media slds-listbox__option slds-listbox__option_entity slds-listbox__option_has-meta" 
+                                                          role="option">
+                                                        <span class="slds-media__figure optionIcon">
+                                                            <span class="slds-icon_container" >
+                                                                <lightning:icon iconName="standard:user" size="small"/>
+                                                                <span class="slds-assistive-text">User</span>
+                                                            </span>
+                                                        </span>
+                                                        <span class="slds-media__body singleRow">
+                                                            <span class="optionTitle slds-listbox__option-text slds-listbox__option-text_entity">{! item.userTar.Name}</span>
+                                                        </span>
+                                                    </span>
+                                                </li>
+                                            </aura:iteration> 
+                                        </ul>
+                                    </div>
+                                </aura:if> 
+                                <aura:iteration items="{!v.selectedUsers}" var="wrap">
+                                    <lightning:pill label="{!wrap.userTar.Name}" onremove="{! c.clearSelection }" name="{! wrap.userTar.UserId__c}">
+                                        <aura:set attribute="media">
+                                            <lightning:avatar src="{!wrap.photoURL}" fallbackIconName="standard:user" variant="square" alternativeText="User avatar"/>
+                                        </aura:set>
+                                    </lightning:pill>
+                                </aura:iteration>
+                            </div>
+                        </aura:if>
+                        <table class="slds-table slds-table--bordered slds-table--cell-buffer slds-max-medium-table--stacked">
+                            <thead>
+                                <tr>
+                                    <th>
+                                        <h2>User</h2>
+                                    </th>
+                                    <aura:if isTrue="{! !v.editMode}">
+                                        <th></th>
+                                    </aura:if>
+                                    <aura:if isTrue="{!v.target.Interval__c == 'Monthly'}">
+                                        <th>
+                                            <h2>January</h2>
+                                        </th>
+                                        <th>
+                                            <h2>February</h2>
+                                        </th>
+                                        <th>
+                                            <h2>March</h2>
+                                        </th>
+                                        <th>
+                                            <h2>April</h2>
+                                        </th>
+                                        <th>
+                                            <h2>May</h2>
+                                        </th>
+                                        <th>
+                                            <h2>June</h2>
+                                        </th>
+                                        <th>
+                                            <h2>July</h2>
+                                        </th>
+                                        <th>
+                                            <h2>August</h2>
+                                        </th>
+                                        <th>
+                                            <h2>September</h2>
+                                        </th>
+                                        <th>
+                                            <h2>October</h2>
+                                        </th>
+                                        <th>
+                                            <h2>November</h2>
+                                        </th>
+                                        <th>
+                                            <h2>December</h2>
+                                        </th>
+                                    </aura:if>
+                                    <aura:if isTrue="{!v.target.Interval__c == 'Quarterly'}">
+                                        <th>
+                                            <h2>Quarter 1</h2>
+                                        </th>
+                                        <th>
+                                            <h2>Quarter 2</h2>
+                                        </th>
+                                        <th>
+                                            <h2>Quarter 3</h2>
+                                        </th>
+                                        <th>
+                                            <h2>Quarter 4</h2>
+                                        </th>
+                                    </aura:if>
+                                    <aura:if isTrue="{!v.target.Interval__c == 'Yearly'}">
+                                        <th>
+                                            <h2>{! v.thisYear - 3}</h2>
+                                        </th>
+                                        <th>
+                                            <h2>{! v.thisYear - 2}</h2>
+                                        </th>
+                                        <th>
+                                            <h2>{! v.thisYear - 1}</h2>
+                                        </th>
+                                    </aura:if>
+                                    <aura:if isTrue="{! !v.editMode}">
+                                        <th>Total</th>
+                                    </aura:if>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <aura:iteration items="{!v.selectedUsers}" var="wrap">
+                                    <tr>
+                                        <td class="slds-truncate" data-label="User Name">
+                                            <lightning:formattedUrl value="{!'/'+wrap.userTar.UserId__c}" tooltip="{!wrap.userTar.Name}" label="{!wrap.userTar.Name}" target="_blank" />
+                                        </td>
+                                        <aura:if isTrue="{! !v.editMode}">                                        
+                                            <td class="slds-truncate" data-label="Titles">
+                                                <lightning:tile label="">
+                                                    <p class="slds-truncate" title="Actual">Actual</p>
+                                                    <p class="slds-truncate" title="Target">Target</p>
+                                                    <p class="slds-truncate" title="Achieved %">Achieved %</p>
+                                                </lightning:tile>
+                                            </td>
+                                        </aura:if>
+                                        <aura:if isTrue="{!v.target.Interval__c == 'Monthly'}">
+                                            <td class="slds-truncate" data-label="January Target">
+                                                <c:TileTarget aura:id="{!v.wrap.userTar.UserId__c}" nameval="January" editmodeval="{!v.editMode}" currencyflagval="{!v.currencyFlag}" targetinput="{!wrap.userTar.January_T__c}" targetoutput="{!wrap.scores.Jan.target}" actualoutput="{!wrap.scores.Jan.actual}" scoreoutput="{!wrap.scores.Jan.score}" coloroutput="{!wrap.scores.Jan.color}"/>
+                                            </td>
+                                            <td class="slds-truncate" data-label="February Target">
+                                                <c:TileTarget aura:id="{!v.wrap.userTar.UserId__c}" nameval="February" editmodeval="{!v.editMode}" currencyflagval="{!v.currencyFlag}" targetinput="{!wrap.userTar.February_T__c}" targetoutput="{!wrap.scores.Feb.target}" actualoutput="{!wrap.scores.Feb.actual}" scoreoutput="{!wrap.scores.Feb.score}" coloroutput="{!wrap.scores.Feb.color}"/>
+                                            </td>
+                                            <td class="slds-truncate" data-label="March Target">
+                                                <c:TileTarget aura:id="{!v.wrap.userTar.UserId__c}" nameval="March" editmodeval="{!v.editMode}" currencyflagval="{!v.currencyFlag}" targetinput="{!wrap.userTar.March_T__c}" targetoutput="{!wrap.scores.Mar.target}" actualoutput="{!wrap.scores.Mar.actual}" scoreoutput="{!wrap.scores.Mar.score}" coloroutput="{!wrap.scores.Mar.color}"/>
+                                            </td>
+                                            <td class="slds-truncate" data-label="April Target">
+                                                <c:TileTarget aura:id="{!v.wrap.userTar.UserId__c}" nameval="April" editmodeval="{!v.editMode}" currencyflagval="{!v.currencyFlag}" targetinput="{!wrap.userTar.April_T__c}" targetoutput="{!wrap.scores.Apr.target}" actualoutput="{!wrap.scores.Apr.actual}" scoreoutput="{!wrap.scores.Apr.score}" coloroutput="{!wrap.scores.Apr.color}"/>
+                                            </td>
+                                            <td class="slds-truncate" data-label="May Target">
+                                                <c:TileTarget aura:id="{!v.wrap.userTar.UserId__c}" nameval="May" editmodeval="{!v.editMode}" currencyflagval="{!v.currencyFlag}" targetinput="{!wrap.userTar.May_T__c}" targetoutput="{!wrap.scores.May.target}" actualoutput="{!wrap.scores.May.actual}" scoreoutput="{!wrap.scores.May.score}" coloroutput="{!wrap.scores.May.color}"/>
+                                            </td>
+                                            <td class="slds-truncate" data-label="June Target">
+                                                <c:TileTarget aura:id="{!v.wrap.userTar.UserId__c}" nameval="June" editmodeval="{!v.editMode}" currencyflagval="{!v.currencyFlag}" targetinput="{!wrap.userTar.June_T__c}" targetoutput="{!wrap.scores.Jun.target}" actualoutput="{!wrap.scores.Jun.actual}" scoreoutput="{!wrap.scores.Jun.score}" coloroutput="{!wrap.scores.Jun.color}"/>
+                                            </td>
+                                            <td class="slds-truncate" data-label="July Target">
+                                                <c:TileTarget aura:id="{!v.wrap.userTar.UserId__c}" nameval="July" editmodeval="{!v.editMode}" currencyflagval="{!v.currencyFlag}" targetinput="{!wrap.userTar.July_T__c}" targetoutput="{!wrap.scores.Jul.target}" actualoutput="{!wrap.scores.Jul.actual}" scoreoutput="{!wrap.scores.Jul.score}" coloroutput="{!wrap.scores.Jul.color}"/>
+                                            </td>
+                                            <td class="slds-truncate" data-label="August Target">
+                                                <c:TileTarget aura:id="{!v.wrap.userTar.UserId__c}" nameval="August" editmodeval="{!v.editMode}" currencyflagval="{!v.currencyFlag}" targetinput="{!wrap.userTar.August_T__c}" targetoutput="{!wrap.scores.Aug.target}" actualoutput="{!wrap.scores.Aug.actual}" scoreoutput="{!wrap.scores.Aug.score}" coloroutput="{!wrap.scores.Aug.color}"/>
+                                            </td>
+                                            <td class="slds-truncate" data-label="September Target">
+                                                <c:TileTarget aura:id="{!v.wrap.userTar.UserId__c}" nameval="September" editmodeval="{!v.editMode}" currencyflagval="{!v.currencyFlag}" targetinput="{!wrap.userTar.September_T__c}" targetoutput="{!wrap.scores.Sep.target}" actualoutput="{!wrap.scores.Sep.actual}" scoreoutput="{!wrap.scores.Sep.score}" coloroutput="{!wrap.scores.Sep.color}"/>
+                                            </td>
+                                            <td class="slds-truncate" data-label="October Target">
+                                                <c:TileTarget aura:id="{!v.wrap.userTar.UserId__c}" nameval="October" editmodeval="{!v.editMode}" currencyflagval="{!v.currencyFlag}" targetinput="{!wrap.userTar.October_T__c}" targetoutput="{!wrap.scores.Oct.target}" actualoutput="{!wrap.scores.Oct.actual}" scoreoutput="{!wrap.scores.Oct.score}" coloroutput="{!wrap.scores.Oct.color}"/>
+                                            </td>
+                                            <td class="slds-truncate" data-label="November Target">
+                                                <c:TileTarget aura:id="{!v.wrap.userTar.UserId__c}" nameval="November" editmodeval="{!v.editMode}" currencyflagval="{!v.currencyFlag}" targetinput="{!wrap.userTar.November_T__c}" targetoutput="{!wrap.scores.Nov.target}" actualoutput="{!wrap.scores.Nov.actual}" scoreoutput="{!wrap.scores.Nov.score}" coloroutput="{!wrap.scores.Nov.color}"/>
+                                            </td>
+                                            <td class="slds-truncate" data-label="December Target">
+                                                <c:TileTarget aura:id="{!v.wrap.userTar.UserId__c}" nameval="December" editmodeval="{!v.editMode}" currencyflagval="{!v.currencyFlag}" targetinput="{!wrap.userTar.December_T__c}" targetoutput="{!wrap.scores.Dec.target}" actualoutput="{!wrap.scores.Dec.actual}" scoreoutput="{!wrap.scores.Dec.score}" coloroutput="{!wrap.scores.Dec.color}"/>
+                                            </td>
+                                        </aura:if>
+                                        <aura:if isTrue="{!v.target.Interval__c == 'Quarterly'}">
+                                            <td class="slds-truncate" data-label="Quarter 1 Target">
+                                                <c:TileTarget aura:id="{!v.wrap.userTar.UserId__c}" nameval="Quarter 1" editmodeval="{!v.editMode}" currencyflagval="{!v.currencyFlag}" targetinput="{!wrap.userTar.Q1_T__c}" targetoutput="{!wrap.scores.Q1.target}" actualoutput="{!wrap.scores.Q1.actual}" scoreoutput="{!wrap.scores.Q1.score}" coloroutput="{!wrap.scores.Q1.color}"/>
+                                            </td>
+                                            <td class="slds-truncate" data-label="Quarter 2 Target">
+                                                <c:TileTarget aura:id="{!v.wrap.userTar.UserId__c}" nameval="Quarter 2" editmodeval="{!v.editMode}" currencyflagval="{!v.currencyFlag}" targetinput="{!wrap.userTar.Q2_T__c}" targetoutput="{!wrap.scores.Q2.target}" actualoutput="{!wrap.scores.Q2.actual}" scoreoutput="{!wrap.scores.Q2.score}" coloroutput="{!wrap.scores.Q2.color}"/>
+                                            </td>
+                                            <td class="slds-truncate" data-label="Quarter 3 Target">
+                                                <c:TileTarget aura:id="{!v.wrap.userTar.UserId__c}" nameval="Quarter 3" editmodeval="{!v.editMode}" currencyflagval="{!v.currencyFlag}" targetinput="{!wrap.userTar.Q3_T__c}" targetoutput="{!wrap.scores.Q3.target}" actualoutput="{!wrap.scores.Q3.actual}" scoreoutput="{!wrap.scores.Q3.score}" coloroutput="{!wrap.scores.Q3.color}"/>
+                                            </td>
+                                            <td class="slds-truncate" data-label="Quarter 4 Target">
+                                                <c:TileTarget aura:id="{!v.wrap.userTar.UserId__c}" nameval="Quarter 4" editmodeval="{!v.editMode}" currencyflagval="{!v.currencyFlag}" targetinput="{!wrap.userTar.Q4_T__c}" targetoutput="{!wrap.scores.Q4.target}" actualoutput="{!wrap.scores.Q4.actual}" scoreoutput="{!wrap.scores.Q4.score}" coloroutput="{!wrap.scores.Q4.color}"/>
+                                            </td>
+                                        </aura:if>
+                                        <aura:if isTrue="{!v.target.Interval__c == 'Yearly'}">
+                                            <td class="slds-truncate" data-label="Year 1 Target">
+                                                <c:TileTarget aura:id="{!v.wrap.userTar.UserId__c}" nameval="Year 1" editmodeval="{!v.editMode}" currencyflagval="{!v.currencyFlag}" targetinput="{!wrap.userTar.Year1_T__c}" targetoutput="{!wrap.scores.Year1.target}" actualoutput="{!wrap.scores.Year1.actual}" scoreoutput="{!wrap.scores.Year1.score}" coloroutput="{!wrap.scores.Year1.color}"/>
+                                            </td>
+                                            <td class="slds-truncate" data-label="Year 2 Target">
+                                                <c:TileTarget aura:id="{!v.wrap.userTar.UserId__c}" nameval="Year 2" editmodeval="{!v.editMode}" currencyflagval="{!v.currencyFlag}" targetinput="{!wrap.userTar.Year2_T__c}" targetoutput="{!wrap.scores.Year2.target}" actualoutput="{!wrap.scores.Year2.actual}" scoreoutput="{!wrap.scores.Year2.score}" coloroutput="{!wrap.scores.Year2.color}"/>
+                                            </td>
+                                            <td class="slds-truncate" data-label="Year 3 Target">
+                                                <c:TileTarget aura:id="{!v.wrap.userTar.UserId__c}" nameval="Year 3" editmodeval="{!v.editMode}" currencyflagval="{!v.currencyFlag}" targetinput="{!wrap.userTar.Year3_T__c}" targetoutput="{!wrap.scores.Year3.target}" actualoutput="{!wrap.scores.Year3.actual}" scoreoutput="{!wrap.scores.Year3.score}" coloroutput="{!wrap.scores.Year3.color}"/>
+                                            </td>
+                                        </aura:if>
+                                        <aura:if isTrue="{! !v.editMode}">                                        
+                                            <td class="slds-truncate" data-label="Total">
+                                                <aura:if isTrue="{!v.currencyFlag}">
+                                                    <p class="slds-truncate" title="Total Actual Currency">
+                                                        <lightning:formattedNumber value="{!wrap.scores.Total.actual}" maximumFractionDigits="2" style="currency" currencyCode="USD"/>
+                                                    </p>
+                                                    <p class="slds-truncate" title="Total Target Currency">
+                                                        <lightning:formattedNumber value="{!wrap.scores.Total.target}" maximumFractionDigits="2" style="currency" currencyCode="USD"/>
+                                                    </p>
+                                                    <aura:set attribute="else">
+                                                        <p class="slds-truncate" title="Total Actual">
+                                                            <lightning:formattedNumber value="{!wrap.scores.Total.actual}" maximumFractionDigits="2"/>
+                                                        </p>
+                                                        <p class="slds-truncate" title="Total Target">
+                                                            <lightning:formattedNumber value="{!wrap.scores.Total.target}" maximumFractionDigits="2"/>
+                                                        </p>
+                                                    </aura:set>
+                                                </aura:if>
+                                                <p class="slds-truncate" title="Total Score" style="{!'background-color:'+wrap.scores.Total.color }">
+                                                    <lightning:formattedNumber value="{!wrap.scores.Total.score}" maximumFractionDigits="2" style="percent"/>
+                                                </p>
+                                            </td>
+                                        </aura:if>
+                                    </tr>
+                                </aura:iteration>
+                            </tbody>
+                        </table>
+                    </aura:set>
+                </aura:if>
+            </aura:set>
+        </aura:if>
+    </div>
+</aura:component>

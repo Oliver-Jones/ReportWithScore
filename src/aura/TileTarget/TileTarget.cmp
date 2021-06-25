@@ -1,0 +1,42 @@
+<aura:component >
+    <aura:attribute name="editmodeval" type="Boolean" />
+    <aura:attribute name="currencyflagval" type="Boolean" />
+    <aura:attribute name="targetinput" type="object" />
+    <aura:attribute name="targetoutput" type="object" />
+    <aura:attribute name="actualoutput" type="object" />
+    <aura:attribute name="scoreoutput" type="object" />
+    <aura:attribute name="coloroutput" type="object" />
+    <aura:attribute name="nameval" type="String" />
+    
+    <lightning:tile label="">
+        <aura:if isTrue="{!v.currencyflagval}">
+            <p class="slds-truncate" title="{! v.nameval+' Actual Currency'}">
+                <lightning:formattedNumber value="{! v.actualoutput}" maximumFractionDigits="2" style="currency" currencyCode="USD"/>
+            </p>
+            <p class="slds-truncate" title="{! v.nameval+' Target Currency'}">
+                <aura:if isTrue="{!v.editmodeval}">
+                    <lightning:input type="number" value="{! v.targetinput}" formatter="currency" step="0.01" variant="label-hidden"/>
+                    <aura:set attribute="else">
+                        <lightning:formattedNumber value="{! v.targetoutput}" maximumFractionDigits="2" style="currency" currencyCode="USD"/>
+                    </aura:set>
+                </aura:if>
+            </p>
+            <aura:set attribute="else">
+                <p class="slds-truncate" title="{! v.nameval+' Actual'}">
+                    <lightning:formattedNumber value="{! v.actualoutput}" maximumFractionDigits="2"/>
+                </p>
+                <p class="slds-truncate" title="{! v.nameval+' Target'}">
+                    <aura:if isTrue="{!v.editmodeval}">
+                        <lightning:input type="number" value="{! v.targetinput}" step="0" variant="label-hidden"/>
+                        <aura:set attribute="else">
+                            <lightning:formattedNumber value="{! v.targetoutput}" maximumFractionDigits="2"/>
+                        </aura:set>
+                    </aura:if>
+                </p>
+            </aura:set>
+        </aura:if>
+        <p class="slds-truncate" title="{! v.nameval+' Score'}" style="{!'background-color:'+v.coloroutput }">
+            <lightning:formattedNumber value="{! v.scoreoutput}" maximumFractionDigits="2" style="percent"/>
+        </p>
+    </lightning:tile>
+</aura:component>
